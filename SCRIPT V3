@@ -1,0 +1,269 @@
+-- SERVICES
+local Players = game:GetService("Players")
+local Camera = workspace.CurrentCamera
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+local Lighting = game:GetService("Lighting")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = Players.LocalPlayer
+
+-- VARIABLES
+local espEnabled = true
+local rainbowESP = false
+local flying = false
+local flySpeed = 50
+local bodyGyro, bodyVelocity
+local aimbotEnabled = false
+local aimbotBone = "Head"
+local aimbotBoneTarget = nil
+local fovRadius = 120
+local godMode = false
+local nightMode = false
+local tracersEnabled = true
+local multiKillEnabled = false
+
+-- ESP
+function createESP(player)
+    if player == LocalPlayer then return end
+    local box = Drawing.new("Square")
+    box.Visible = false
+    box.Thickness = 1
+    box.Transparency = 1
+    box.Filled = false
+
+    local nameTag = Drawing.new("Text")
+    nameTag.Size = 14
+    nameTag.Center = true
+    nameTag.Outline = true
+    nameTag.Visible = false
+
+    local line = Drawing.new("Line")
+    line.Thickness = 1
+    line.Transparency = 1
+    line.Visible = false
+
+    RunService.RenderStepped:Connect(function()
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and espEnabled then
+            local hrp = player.Character.HumanoidRootPart
+            local pos, onscreen = Camera:WorldToViewportPoint(hrp.Position)
+            if onscreen then
+                local width, height = 50, 100
+                box.Size = Vector2.new(width, height)
+                box.Position = Vector2.new(pos.X - width / 2, pos.Y - height / 2)
+                nameTag.Position = Vector2.new(pos.X, pos.Y - height / 2 - 14)
+                nameTag.Text = player.Name
+                line.From = Camera.ViewportSize / 2
+                line.To = Vector2.new(pos.X, pos.Y)
+                box.Visible, nameTag.Visible, line.Visible = true, true, true
+                if rainbowESP then
+                    local color = Color3.fromHSV(tick() % 5 / 5, 1, 1)
+                    box.Color = color
+                    nameTag.Color = color
+                    line.Color = color
+                else
+                    box.Color = Color3.fromRGB(255, 0, 0)
+                    nameTag.Color = Color3.fromRGB(255, 255, 255)
+                    line.Color = Color3.fromRGB(0, 255, 0)
+                end
+            else
+                box.Visible, nameTag.Visible, line.Visible = false, false, false
+            end
+        else
+            box.Visible, nameTag.Visible, line.Visible = false, false, false
+        end
+    end)
+end
+
+for _, player in ipairs(Players:GetPlayers()) do createESP(player) end
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function()
+        wait(1)
+        createESP(player)
+    end)
+end)
+
+-- UI
+local screenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
+screenGui.Name = "BloodyPlaygroundUI"
+screenGui.ResetOnSpawn = false
+
+local frame = Instance.new("Frame", screenGui)
+frame.Size = UDim2.new(0, 400, 0, 600)
+frame.Position = UDim2.new(0, 10, 0, 10)
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+frame.BorderSizePixel = 0
+frame.Active = true
+frame.Draggable = true
+
+local titleLabel = Instance.new("TextLabel", frame)
+titleLabel.Size = UDim2.new(1, 0, 0, 30)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "Bloody Playground"
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.Font = Enum.Font.SourceSansBold
+titleLabel.TextSize = 18
+
+local yOffset = 40
+local function createButton(name, callback)
+    local button = Instance.new("TextButton", frame)
+    button.Size = UDim2.new(1, -20, 0, 30)
+    button.Position = UDim2.new(0, 10, 0, yOffset)
+    button.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+    button.Text = name
+    button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    button.Font = Enum.Font.SourceSans
+    button.TextSize = 16
+    button.MouseButton1Click:Connect(callback)
+    yOffset = yOffset + 40
+    return button
+end
+
+createButton("Toggle ESP", function()
+    espEnabled = not espEnabled
+end)
+
+createButton("Toggle Rainbow ESP", function()
+    rainbowESP = not rainbowESP
+end)
+
+createButton("Toggle God Mode", function()
+    godMode = not godMode
+end)
+
+createButton("Toggle Night Mode", function()
+    nightMode = not nightMode
+    Lighting.TimeOfDay = nightMode and "00:00:00" or "14:00:00"
+    Lighting.Brightness = nightMode and 0 or 2
+end)
+
+createButton("Spawn Object", function()
+    local part = Instance.new("Part", workspace)
+    part.Size = Vector3.new(10, 10, 10)
+    part.Anchored = true
+    part.Position = LocalPlayer.Character.Head.Position + Vector3.new(0, 5, 0)
+end)
+
+createButton("Teleport to Mouse", function()
+    local mouse = LocalPlayer:GetMouse()
+    if mouse then LocalPlayer.Character:MoveTo(mouse.Hit.p) end
+end)
+
+createButton("Toggle Aimbot", function()
+    aimbotEnabled = not aimbotEnabled
+end)
+
+createButton("Multi-Kill", function()
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local target = player.Character.HumanoidRootPart
+            target.Anchored = true
+            target.CFrame = LocalPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, -5)
+        end
+    end
+end)
+
+local flyLabel = Instance.new("TextLabel", frame)
+flyLabel.Size = UDim2.new(1, -20, 0, 20)
+flyLabel.Position = UDim2.new(0, 10, 0, yOffset)
+flyLabel.Text = "Fly Speed"
+flyLabel.BackgroundTransparency = 1
+flyLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+flyLabel.Font = Enum.Font.SourceSans
+flyLabel.TextSize = 16
+yOffset = yOffset + 20
+
+local flySlider = Instance.new("TextBox", frame)
+flySlider.Size = UDim2.new(1, -20, 0, 30)
+flySlider.Position = UDim2.new(0, 10, 0, yOffset)
+flySlider.Text = tostring(flySpeed)
+flySlider.TextColor3 = Color3.fromRGB(255, 255, 255)
+flySlider.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+flySlider.FocusLost:Connect(function()
+    local val = tonumber(flySlider.Text)
+    if val then flySpeed = val end
+end)
+yOffset = yOffset + 40
+
+local fpsLabel = Instance.new("TextLabel", frame)
+fpsLabel.Size = UDim2.new(1, -20, 0, 30)
+fpsLabel.Position = UDim2.new(0, 10, 0, yOffset)
+fpsLabel.BackgroundTransparency = 1
+fpsLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+fpsLabel.Font = Enum.Font.SourceSans
+fpsLabel.TextSize = 16
+yOffset = yOffset + 40
+
+-- FOV Circle
+local fovCircle = Drawing.new("Circle")
+fovCircle.Radius = fovRadius
+fovCircle.Filled = false
+fovCircle.Color = Color3.fromRGB(255, 255, 255)
+fovCircle.Thickness = 1
+fovCircle.Transparency = 1
+
+-- Render Loop
+RunService.RenderStepped:Connect(function(dt)
+    local mouseLocation = UIS:GetMouseLocation()
+    fovCircle.Position = Vector2.new(mouseLocation.X, mouseLocation.Y)
+    fovCircle.Visible = true
+
+    local fps = math.floor(1 / dt)
+    fpsLabel.Text = "FPS: " .. fps
+
+    if aimbotEnabled then
+        local closest, closestDist = nil, math.huge
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild(aimbotBone) then
+                local pos, visible = Camera:WorldToViewportPoint(player.Character[aimbotBone].Position)
+                local dist = (Vector2.new(pos.X, pos.Y) - mouseLocation).Magnitude
+                if visible and dist < fovRadius and dist < closestDist then
+                    closest = player
+                    closestDist = dist
+                    aimbotBoneTarget = player.Character[aimbotBone]
+                end
+            end
+        end
+        if closest and aimbotBoneTarget then
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, aimbotBoneTarget.Position)
+        end
+    end
+end)
+
+-- Fly
+function setFly(active)
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    if active then
+        bodyGyro = Instance.new("BodyGyro", char.HumanoidRootPart)
+        bodyGyro.P = 9e4
+        bodyGyro.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+        bodyVelocity = Instance.new("BodyVelocity", char.HumanoidRootPart)
+        bodyVelocity.Velocity = Vector3.zero
+        bodyVelocity.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+    else
+        if bodyGyro then bodyGyro:Destroy() end
+        if bodyVelocity then bodyVelocity:Destroy() end
+    end
+end
+
+UIS.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode == Enum.KeyCode.M then
+        frame.Visible = not frame.Visible
+    elseif input.KeyCode == Enum.KeyCode.F then
+        flying = not flying
+        setFly(flying)
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    if flying and bodyVelocity and LocalPlayer.Character then
+        local move = Vector3.zero
+        if UIS:IsKeyDown(Enum.KeyCode.W) then move += Camera.CFrame.LookVector end
+        if UIS:IsKeyDown(Enum.KeyCode.S) then move -= Camera.CFrame.LookVector end
+        if UIS:IsKeyDown(Enum.KeyCode.A) then move -= Camera.CFrame.RightVector end
+        if UIS:IsKeyDown(Enum.KeyCode.D) then move += Camera.CFrame.RightVector end
+        bodyVelocity.Velocity = move.Unit * flySpeed
+        bodyGyro.CFrame = Camera.CFrame
+    end
+end)
