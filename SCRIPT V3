@@ -24,38 +24,70 @@ local multiKillEnabled = false
 -- ESP
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
 
 local espEnabled = true
 local rainbowESP = false
-local lineOrigin = "Bottom" -- "Top", "Middle", "Bottom"
+local lineOriginMode = "Bottom" -- Can be "Top", "Middle", "Bottom"
 
--- Toggle line origin with L key
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    if input.KeyCode == Enum.KeyCode.L then
-        if lineOrigin == "Bottom" then
-            lineOrigin = "Middle"
-        elseif lineOrigin == "Middle" then
-            lineOrigin = "Top"
-        else
-            lineOrigin = "Bottom"
-        end
-        print("Line origin set to:", lineOrigin)
+-- UI Setup
+local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
+local Frame = Instance.new("Frame", ScreenGui)
+Frame.Size = UDim2.new(0, 200, 0, 140)
+Frame.Position = UDim2.new(0, 20, 0, 100)
+Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+Frame.BorderSizePixel = 0
+
+local function createButton(name, callback, yOffset)
+    local button = Instance.new("TextButton", Frame)
+    button.Size = UDim2.new(1, -10, 0, 30)
+    button.Position = UDim2.new(0, 5, 0, yOffset)
+    button.Text = name
+    button.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    button.MouseButton1Click:Connect(callback)
+end
+
+-- Toggle GUI
+local visible = true
+game:GetService("UserInputService").InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.M then
+        visible = not visible
+        Frame.Visible = visible
     end
 end)
 
--- Create ESP for a player
-function createESP(player)
-    if player == LocalPlayer then return end
+-- GUI Buttons
+createButton("Toggle ESP", function()
+    espEnabled = not espEnabled
+end, 10)
+
+createButton("Toggle Rainbow ESP", function()
+    rainbowESP = not rainbowESP
+end, 45)
+
+createButton("Toggle Line Origin", function()
+    if lineOriginMode == "Bottom" then
+        lineOriginMode = "Middle"
+    elseif lineOriginMode == "Middle" then
+        lineOriginMode = "Top"
+    else
+        lineOriginMode = "Bottom"
+    end
+end, 80)
+
+-- ESP Management
+local playerESPData = {}
+
+local function createESP(player)
+    if player == LocalPlayer or playerESPData[player] then return end
 
     local box = Drawing.new("Square")
-    box.Visible = false
     box.Thickness = 1
     box.Transparency = 1
     box.Filled = false
+    box.Visible = false
 
     local nameTag = Drawing.new("Text")
     nameTag.Size = 14
@@ -68,58 +100,66 @@ function createESP(player)
     line.Transparency = 1
     line.Visible = false
 
-    -- Store last update to prevent flicker
-    RunService.RenderStepped:Connect(function()
-        if not player or not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") or not espEnabled then
-            box.Visible, nameTag.Visible, line.Visible = false, false, false
-            return
-        end
-
-        local hrp = player.Character.HumanoidRootPart
-        local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
-        if onScreen then
-            -- Box setup
-            local width, height = 50, 100
-            box.Size = Vector2.new(width, height)
-            box.Position = Vector2.new(pos.X - width / 2, pos.Y - height / 2)
-            box.Visible = true
-
-            -- Name tag
-            nameTag.Position = Vector2.new(pos.X, pos.Y - height / 2 - 14)
-            nameTag.Text = player.Name
-            nameTag.Visible = true
-
-            -- Line origin switch
-            local screenSize = Camera.ViewportSize
-            local fromPos = Vector2.new(screenSize.X / 2, screenSize.Y) -- Default: Bottom
-            if lineOrigin == "Middle" then
-                fromPos = Vector2.new(screenSize.X / 2, screenSize.Y / 2)
-            elseif lineOrigin == "Top" then
-                fromPos = Vector2.new(screenSize.X / 2, 0)
-            end
-
-            line.From = fromPos
-            line.To = Vector2.new(pos.X, pos.Y)
-            line.Visible = true
-
-            -- Colors
-            if rainbowESP then
-                local color = Color3.fromHSV(tick() % 5 / 5, 1, 1)
-                box.Color = color
-                nameTag.Color = color
-                line.Color = color
-            else
-                box.Color = Color3.fromRGB(255, 0, 0)
-                nameTag.Color = Color3.fromRGB(255, 255, 255)
-                line.Color = Color3.fromRGB(0, 255, 0)
-            end
-        else
-            box.Visible, nameTag.Visible, line.Visible = false, false, false
-        end
-    end)
+    playerESPData[player] = {
+        Box = box,
+        Name = nameTag,
+        Line = line,
+    }
 end
 
--- Create ESP for all current and future players
+-- Render loop (single connection)
+RunService.RenderStepped:Connect(function()
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            if not playerESPData[player] then createESP(player) end
+
+            local esp = playerESPData[player]
+            local hrp = player.Character.HumanoidRootPart
+            local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+
+            if onScreen and espEnabled then
+                local width, height = 50, 100
+                esp.Box.Size = Vector2.new(width, height)
+                esp.Box.Position = Vector2.new(pos.X - width / 2, pos.Y - height / 2)
+                esp.Box.Visible = true
+
+                esp.Name.Position = Vector2.new(pos.X, pos.Y - height / 2 - 14)
+                esp.Name.Text = player.Name
+                esp.Name.Visible = true
+
+                local from
+                if lineOriginMode == "Top" then
+                    from = Vector2.new(Camera.ViewportSize.X / 2, 0)
+                elseif lineOriginMode == "Middle" then
+                    from = Camera.ViewportSize / 2
+                else
+                    from = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+                end
+
+                esp.Line.From = from
+                esp.Line.To = Vector2.new(pos.X, pos.Y)
+                esp.Line.Visible = true
+
+                if rainbowESP then
+                    local color = Color3.fromHSV(tick() % 5 / 5, 1, 1)
+                    esp.Box.Color = color
+                    esp.Name.Color = color
+                    esp.Line.Color = color
+                else
+                    esp.Box.Color = Color3.fromRGB(255, 0, 0)
+                    esp.Name.Color = Color3.fromRGB(255, 255, 255)
+                    esp.Line.Color = Color3.fromRGB(0, 255, 0)
+                end
+            else
+                esp.Box.Visible = false
+                esp.Name.Visible = false
+                esp.Line.Visible = false
+            end
+        end
+    end
+end)
+
+-- Auto create ESP for players
 for _, player in ipairs(Players:GetPlayers()) do
     if player ~= LocalPlayer then
         createESP(player)
