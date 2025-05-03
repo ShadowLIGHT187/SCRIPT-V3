@@ -291,3 +291,15 @@ RunService.RenderStepped:Connect(function()
         bodyGyro.CFrame = Camera.CFrame
     end
 end)
+
+-- Add "Mabe by ShadowLIGHT" text to the menu
+local footerLabel = Instance.new("TextLabel", frame)
+footerLabel.Size = UDim2.new(1, -20, 0, 30)
+footerLabel.Position = UDim2.new(0, 10, 0, yOffset)
+footerLabel.BackgroundTransparency = 1
+footerLabel.Text = "Mabe by ShadowLIGHT"
+footerLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+footerLabel.Font = Enum.Font.SourceSans
+footerLabel.TextSize = 14
+footerLabel.TextAlign = Enum.TextXAlignment.Center
+yOffset = yOffset + 40
