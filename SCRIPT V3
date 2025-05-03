@@ -22,8 +22,9 @@ local nightMode = false
 local multiKillEnabled = false
 
 -- ESP
-function createESP(player)
+local function createESP(player)
     if player == LocalPlayer then return end
+
     local box = Drawing.new("Square")
     box.Visible = false
     box.Thickness = 1
@@ -42,8 +43,11 @@ function createESP(player)
     line.Visible = false
 
     RunService.RenderStepped:Connect(function()
-        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and espEnabled then
-            local hrp = player.Character.HumanoidRootPart
+        local char = player.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+
+        if espEnabled and hrp and humanoid and humanoid.Health > 0 then
             local pos, onscreen = Camera:WorldToViewportPoint(hrp.Position)
             if onscreen then
                 local width, height = 50, 100
@@ -51,9 +55,16 @@ function createESP(player)
                 box.Position = Vector2.new(pos.X - width / 2, pos.Y - height / 2)
                 nameTag.Position = Vector2.new(pos.X, pos.Y - height / 2 - 14)
                 nameTag.Text = player.Name
-                line.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+
+                -- Line from bottom of screen
+                local screenSize = Camera.ViewportSize
+                line.From = Vector2.new(screenSize.X / 2, screenSize.Y)
                 line.To = Vector2.new(pos.X, pos.Y)
-                box.Visible, nameTag.Visible, line.Visible = true, true, true
+
+                box.Visible = true
+                nameTag.Visible = true
+                line.Visible = true
+
                 if rainbowESP then
                     local color = Color3.fromHSV(tick() % 5 / 5, 1, 1)
                     box.Color = color
@@ -65,15 +76,32 @@ function createESP(player)
                     line.Color = Color3.fromRGB(0, 255, 0)
                 end
             else
-                box.Visible, nameTag.Visible, line.Visible = false, false, false
+                box.Visible = false
+                nameTag.Visible = false
+                line.Visible = false
             end
         else
-            box.Visible, nameTag.Visible, line.Visible = false, false, false
+            box.Visible = false
+            nameTag.Visible = false
+            line.Visible = false
         end
     end)
 end
 
-for _, player in ipairs(Players:GetPlayers()) do createESP(player) end
+-- Create ESP for all current players except LocalPlayer
+for _, player in ipairs(Players:GetPlayers()) do
+    if player ~= LocalPlayer then
+        player.CharacterAdded:Connect(function()
+            wait(1)
+            createESP(player)
+        end)
+        if player.Character then
+            createESP(player)
+        end
+    end
+end
+
+-- Handle new players
 Players.PlayerAdded:Connect(function(player)
     player.CharacterAdded:Connect(function()
         wait(1)
