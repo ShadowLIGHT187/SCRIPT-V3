@@ -22,8 +22,24 @@ local nightMode = false
 local multiKillEnabled = false
 
 -- ESP
+local espConnections = {} -- store ESP data per player
+
+local function removeESP(player)
+    local data = espConnections[player]
+    if data then
+        if data.Connection then data.Connection:Disconnect() end
+        if data.Box then data.Box:Remove() end
+        if data.NameTag then data.NameTag:Remove() end
+        if data.Line then data.Line:Remove() end
+        espConnections[player] = nil
+    end
+end
+
 local function createESP(player)
     if player == LocalPlayer then return end
+
+    -- Remove old ESP if exists
+    removeESP(player)
 
     local box = Drawing.new("Square")
     box.Visible = false
@@ -42,21 +58,22 @@ local function createESP(player)
     line.Transparency = 1
     line.Visible = false
 
-    RunService.RenderStepped:Connect(function()
+    local conn
+    conn = RunService.RenderStepped:Connect(function()
         local char = player.Character
         local hrp = char and char:FindFirstChild("HumanoidRootPart")
         local humanoid = char and char:FindFirstChildOfClass("Humanoid")
 
         if espEnabled and hrp and humanoid and humanoid.Health > 0 then
-            local pos, onscreen = Camera:WorldToViewportPoint(hrp.Position)
-            if onscreen then
+            local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+            if onScreen then
                 local width, height = 50, 100
                 box.Size = Vector2.new(width, height)
                 box.Position = Vector2.new(pos.X - width / 2, pos.Y - height / 2)
                 nameTag.Position = Vector2.new(pos.X, pos.Y - height / 2 - 14)
                 nameTag.Text = player.Name
 
-                -- Line from bottom of screen
+                -- Line from bottom center of screen
                 local screenSize = Camera.ViewportSize
                 line.From = Vector2.new(screenSize.X / 2, screenSize.Y)
                 line.To = Vector2.new(pos.X, pos.Y)
@@ -86,9 +103,16 @@ local function createESP(player)
             line.Visible = false
         end
     end)
+
+    espConnections[player] = {
+        Box = box,
+        NameTag = nameTag,
+        Line = line,
+        Connection = conn
+    }
 end
 
--- Create ESP for all current players except LocalPlayer
+-- Initial ESP for current players
 for _, player in ipairs(Players:GetPlayers()) do
     if player ~= LocalPlayer then
         player.CharacterAdded:Connect(function()
@@ -101,13 +125,19 @@ for _, player in ipairs(Players:GetPlayers()) do
     end
 end
 
--- Handle new players
+-- New players
 Players.PlayerAdded:Connect(function(player)
     player.CharacterAdded:Connect(function()
         wait(1)
         createESP(player)
     end)
 end)
+
+-- Cleanup on leave
+Players.PlayerRemoving:Connect(function(player)
+    removeESP(player)
+end)
+
 
 -- UI
 local screenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
