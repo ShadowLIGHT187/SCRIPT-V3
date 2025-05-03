@@ -19,7 +19,6 @@ local aimbotBoneTarget = nil
 local fovRadius = 120
 local godMode = false
 local nightMode = false
-local tracersEnabled = true
 local multiKillEnabled = false
 
 -- ESP
@@ -145,7 +144,22 @@ end)
 
 createButton("Teleport to Mouse", function()
     local mouse = LocalPlayer:GetMouse()
-    if mouse then LocalPlayer.Character:MoveTo(mouse.Hit.p) end
+    if mouse and LocalPlayer.Character then
+        LocalPlayer.Character:MoveTo(mouse.Hit.Position)
+    end
+end)
+
+createButton("Teleport to Player", function()
+    local target = nil
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            target = player.Character.HumanoidRootPart.Position
+            break
+        end
+    end
+    if target and LocalPlayer.Character then
+        LocalPlayer.Character:MoveTo(target + Vector3.new(0, 5, 0))
+    end
 end)
 
 createButton("Toggle Aimbot", function()
@@ -246,6 +260,7 @@ function setFly(active)
     end
 end
 
+-- Keybinds
 UIS.InputBegan:Connect(function(input, gp)
     if gp then return end
     if input.KeyCode == Enum.KeyCode.M then
@@ -253,6 +268,11 @@ UIS.InputBegan:Connect(function(input, gp)
     elseif input.KeyCode == Enum.KeyCode.F then
         flying = not flying
         setFly(flying)
+    elseif input.KeyCode == Enum.KeyCode.T then
+        local mouse = LocalPlayer:GetMouse()
+        if mouse and LocalPlayer.Character then
+            LocalPlayer.Character:MoveTo(mouse.Hit.Position)
+        end
     end
 end)
 
@@ -263,7 +283,11 @@ RunService.RenderStepped:Connect(function()
         if UIS:IsKeyDown(Enum.KeyCode.S) then move -= Camera.CFrame.LookVector end
         if UIS:IsKeyDown(Enum.KeyCode.A) then move -= Camera.CFrame.RightVector end
         if UIS:IsKeyDown(Enum.KeyCode.D) then move += Camera.CFrame.RightVector end
-        bodyVelocity.Velocity = move.Unit * flySpeed
+        if move.Magnitude > 0 then
+            bodyVelocity.Velocity = move.Unit * flySpeed
+        else
+            bodyVelocity.Velocity = Vector3.zero
+        end
         bodyGyro.CFrame = Camera.CFrame
     end
 end)
