@@ -51,7 +51,7 @@ function createESP(player)
                 box.Position = Vector2.new(pos.X - width / 2, pos.Y - height / 2)
                 nameTag.Position = Vector2.new(pos.X, pos.Y - height / 2 - 14)
                 nameTag.Text = player.Name
-                line.From = Camera.ViewportSize / 2
+                line.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
                 line.To = Vector2.new(pos.X, pos.Y)
                 box.Visible, nameTag.Visible, line.Visible = true, true, true
                 if rainbowESP then
