@@ -311,7 +311,7 @@ end)
 
 -- UI
 local screenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
-screenGui.Name = "BloodyPlaygroundUI"
+screenGui.Name = "UNIVERSAL SCRIPT"
 screenGui.ResetOnSpawn = false
 
 local frame = Instance.new("Frame", screenGui)
